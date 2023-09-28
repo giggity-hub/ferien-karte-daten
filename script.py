@@ -6,7 +6,6 @@ from datetime import date
 from typing import List, Dict, TypedDict
 import json
 
-ICAL_DATA_FOLDER = './data/schulferien'
 BUNDESLAENDER = ['BW', 'BY', "BE", "BB", 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH']
 
 class Holiday(TypedDict):
@@ -17,8 +16,9 @@ class Holiday(TypedDict):
 HolidayDict = Dict[str, Dict[str, List[Holiday]]]
 
 def icalendar_event_to_holiday(e: icalendar.Event):
+    summary = str(e['SUMMARY']).replace(' in Deutschland', '')
     return {
-        'holiday_type': str(e['SUMMARY']),
+        'holiday_type': summary,
         'start': e['DTSTART'].dt,
         'end': e['DTEND'].dt}
 
@@ -46,23 +46,26 @@ def duplicate_overflowing_holidays_into_next_year(data: HolidayDict):
                     data[next_year][bundesland].append(holiday)
     return data
 
-def main():
-    years = sorted([dir for dir in os.listdir(ICAL_DATA_FOLDER)])
+def ics_dir_to_json(in_dir, out_path):
+    years = sorted([dir for dir in os.listdir(in_dir)])
     
     data: HolidayDict = {}
     for year in years:
         data[year] = {}
         for bundesland in BUNDESLAENDER:
-            file_path = os.path.join(ICAL_DATA_FOLDER, year, f'{bundesland}.ics')
-            data[year][bundesland] = get_holidays_from_ics_file(file_path)
+            filename = f'{bundesland}.ics'
+            schulferien_path = os.path.join(in_dir, year, filename)
+            data[year][bundesland] = get_holidays_from_ics_file(schulferien_path)
+
 
     data = duplicate_overflowing_holidays_into_next_year(data)
 
-    with open('data.json', 'w') as f:
+    with open(out_path, 'w', encoding='utf8') as f:
         # Default str necessary for datetime.date
-        json.dump(data, f, default=str, indent=4)
+        json.dump(data, f, default=str, indent=4, ensure_ascii=False)
 
 
 
 if __name__ == "__main__":
-    main()
+    ics_dir_to_json('./data/schulferien', 'schulferien.json')
+    ics_dir_to_json('./data/gesetzliche_feiertage', 'feiertage.json')

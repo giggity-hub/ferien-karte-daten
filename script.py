@@ -12,24 +12,29 @@ class Holiday(TypedDict):
     holiday_type: str
     start: date
     end: date
+    id: str
 
 HolidayDict = Dict[str, Dict[str, List[Holiday]]]
 
-def icalendar_event_to_holiday(e: icalendar.Event):
+def icalendar_event_to_holiday(e: icalendar.Event, id):
     summary = str(e['SUMMARY']).replace(' in Deutschland', '')
     return {
         'holiday_type': summary,
         'start': e['DTSTART'].dt,
-        'end': e['DTEND'].dt}
+        'end': e['DTEND'].dt,
+        'id': id}
 
-def get_holidays_from_ics_file(file_path) -> List[Holiday]:
+def get_holidays_from_ics_file(file_path, year, bundesland) -> List[Holiday]:
     holidays = []
     with open(file_path) as f:
         ical_data = f.read()
         cal = Calendar.from_ical(ical_data)
+        index = 0
         for e in cal.walk('vevent'):
-            moped = icalendar_event_to_holiday(e)
+            id = f'{year}-{bundesland}-{index}'
+            moped = icalendar_event_to_holiday(e, id)
             holidays.append(moped)
+            index+=1
     return holidays
 
 
@@ -55,7 +60,8 @@ def ics_dir_to_json(in_dir, out_path):
         for bundesland in BUNDESLAENDER:
             filename = f'{bundesland}.ics'
             schulferien_path = os.path.join(in_dir, year, filename)
-            data[year][bundesland] = get_holidays_from_ics_file(schulferien_path)
+            schmollidays = get_holidays_from_ics_file(schulferien_path, year, bundesland)
+            data[year][bundesland] = schmollidays
 
 
     data = duplicate_overflowing_holidays_into_next_year(data)
